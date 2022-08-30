@@ -1,30 +1,55 @@
 import BN from "bn.js";
-import { Account, WalletAccount } from "near-api-js";
-import { selector } from './selector'
+import * as NEAR from "near-api-js";
+import { selector } from "./selector";
 
-const options = {
-  hereWallet: "https://web.herewallet.app",
-  fnGetAccountBalance: Account.prototype.getAccountBalance,
-  fnRequestSignIn: WalletAccount.prototype.requestSignIn,
-  fnRequestSignTransactions: WalletAccount.prototype.requestSignTransactions,
+export const defaultConfig = {
+  near: NEAR,
+  onlyHere: true,
+  mainnet: {
+    hereWallet: "https://web.herewallet.app",
+    hereContract: "storage.herewallet.near",
+  },
+  testnet: {
+    hereWallet: "https://web.testnet.herewallet.app",
+    hereContract: "storage.testnet.near",
+  },
 };
 
-export const initializePathing = () => {
-  Account.prototype.getAccountBalance = async function () {
-    const params = { account_id: this.accountId };
-    const result = await options.fnGetAccountBalance.call(this);
-    const hereCoins = await this.viewFunction("storage.herewallet.near", "ft_balance_of", params).catch(() => "0");
+const runHereWallet = (_config: Partial<typeof defaultConfig> = {}) => {
+  const config: typeof defaultConfig = {
+    ...defaultConfig,
+    ..._config,
+    testnet: { ...defaultConfig.testnet, ..._config.testnet },
+    mainnet: { ...defaultConfig.mainnet, ..._config.mainnet },
+  };
 
-    let total = new BN(hereCoins).add(new BN(result.available));
-    result.available = total.toString();
+  const { near, onlyHere } = config;
+  const pathing = {
+    fnGetAccountBalance: near.Account.prototype.getAccountBalance,
+    fnRequestSignIn: near.WalletConnection.prototype.requestSignIn,
+    fnRequestSignTransactions: near.WalletConnection.prototype.requestSignTransactions,
+  };
+
+  near.Account.prototype.getAccountBalance = async function () {
+    const result = await pathing.fnGetAccountBalance.call(this);
+
+    const options = config[this.connection.networkId];
+    if (options != null) {
+      const params = { account_id: this.accountId };
+      const hereCoins = await this.viewFunction(options.hereContract, "ft_balance_of", params).catch(() => "0");
+      let total = new BN(hereCoins).add(new BN(result.available));
+      result.available = total.toString();
+    }
+
     return result;
   };
 
-  WalletAccount.prototype.requestSignIn = async function (...args) {
+  near.WalletConnection.prototype.requestSignIn = async function (...args) {
     const realBaseUrl = this._walletBaseUrl;
+    const options = config[this._networkId];
 
-    if (this._networkId === "mainnet") {
-      const select = await selector().catch(() => null);
+    if (options != null) {
+      const select = onlyHere ? "here" : await selector().catch(() => null);
       if (select == null) return;
       if (select === "here") {
         this._walletBaseUrl = options.hereWallet;
@@ -32,7 +57,7 @@ export const initializePathing = () => {
     }
 
     try {
-      await options.fnRequestSignIn.call(this, ...args);
+      await pathing.fnRequestSignIn.call(this, ...args);
     } catch (e) {
       throw e;
     } finally {
@@ -40,11 +65,12 @@ export const initializePathing = () => {
     }
   };
 
-  WalletAccount.prototype.requestSignTransactions = async function (...args) {
+  near.WalletConnection.prototype.requestSignTransactions = async function (...args) {
     const realBaseUrl = this._walletBaseUrl;
+    const options = config[this._networkId];
 
-    if (this._networkId === "mainnet") {
-      const select = await selector().catch(() => null);
+    if (options != null) {
+      const select = onlyHere ? "here" : await selector().catch(() => null);
       if (select == null) return;
       if (select === "here") {
         this._walletBaseUrl = options.hereWallet;
@@ -53,28 +79,28 @@ export const initializePathing = () => {
 
     try {
       // @ts-ignore multi function signatures
-      await options.fnRequestSignTransactions.call(this, ...args);
+      await pathing.fnRequestSignTransactions.call(this, ...args);
     } catch (e) {
       throw e;
     } finally {
       this._walletBaseUrl = realBaseUrl;
     }
   };
+
+  return () => {
+    near.Account.prototype.getAccountBalance = async function () {
+      return await pathing.fnGetAccountBalance.call(this);
+    };
+
+    near.WalletConnection.prototype.requestSignIn = async function (...args) {
+      return await pathing.fnRequestSignIn.call(this, ...args);
+    };
+
+    near.WalletConnection.prototype.requestSignTransactions = async function (...args) {
+      // @ts-ignore multi function signatures
+      return await pathing.fnRequestSignTransactions.call(this, ...args);
+    };
+  };
 };
 
-export const disposePathing = () => {
-  Account.prototype.getAccountBalance = async function () {
-    return await options.fnGetAccountBalance.call(this);
-  };
-
-  WalletAccount.prototype.requestSignIn = async function (...args) {
-    return await options.fnRequestSignIn.call(this, ...args);
-  };
-
-  WalletAccount.prototype.requestSignTransactions = async function (...args) {
-    // @ts-ignore multi function signatures
-    return await options.fnRequestSignTransactions.call(this, ...args);
-  };
-};
-
-initializePathing();
+export default runHereWallet;

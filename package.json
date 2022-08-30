@@ -1,6 +1,6 @@
 {
   "name": "@here-wallet/connect",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "HereWallet lib for connect with near-api-js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -19,7 +19,7 @@
   },
   "peerDependencies": {
     "bn.js": "^5.2.1",
-    "near-api-js": "^0.45.1"
+    "near-api-js": "^1.0.0"
   },
   "bugs": {
     "url": "https://github.com/here-wallet/herewallet-connect/issues"
