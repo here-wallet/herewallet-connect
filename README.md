@@ -22,8 +22,8 @@ const initialize = async () => {
     const wallet = new WalletConnection(near, "app");
 
     wallet.requestSignIn({
-      contractId: "usn",
-      methodNames: ["ft_transfer"],
+      contractId: "contract",
+      methodNames: ["method"],
     });
 }
 ```
@@ -52,7 +52,7 @@ const disableHereWallet = () => {
 }
 ```
 
-## Pathing
+## Patching
 Herewallet bridge absolutely safe, code of this lib just wrap few prototypes methods of WalletConnection and Account:
 
 ```ts
@@ -64,4 +64,17 @@ wallet.requestSignIn()
 wallet.requestSignTransactions()
 ```
 
+## Networks
 
+At the moment here wallet only supports mainnet and testnet networks. If you specify some other network in the near-api initialization, `@here-wallet/connect` will be ignored and all signatures will go through your near-api settings. Our endpoints:
+
+```ts
+  mainnet: {
+    hereWallet: "https://web.herewallet.app",
+    hereContract: "storage.herewallet.near",
+  },
+  testnet: {
+    hereWallet: "https://web.testnet.herewallet.app",
+    hereContract: "storage.herewallet.testnet",
+  }
+```

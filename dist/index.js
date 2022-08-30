@@ -48,7 +48,7 @@ exports.defaultConfig = {
     },
     testnet: {
         hereWallet: "https://web.testnet.herewallet.app",
-        hereContract: "storage.testnet.near",
+        hereContract: "storage.herewallet.testnet",
     },
 };
 const runHereWallet = (_config = {}) => {
